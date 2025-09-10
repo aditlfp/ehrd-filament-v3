@@ -1,0 +1,41 @@
+name: Deploy Laravel ke Jagoan Hosting
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    # Pastikan job tidak berjalan lebih dari 10 menit agar tidak hang
+    timeout-minutes: 10
+
+    steps:
+      - name: 🚚 Get latest code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Assets
+        run: npm run build
+
+      - name: 📂 Sync files
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_HOST }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          # Daftar file/folder yang tidak perlu diupload
+          exclude: |
+            node_modules/**
+            .git/**
+            .github/**
+            README.md
+            .env
