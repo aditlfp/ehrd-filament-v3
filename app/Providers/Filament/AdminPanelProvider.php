@@ -31,7 +31,6 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login(LoginByName::class)
-            ->avatarProvider(UiCustomAvatarProvider::class)
             ->colors([
                 'primary' => Color::Amber,
             ])
