@@ -6,6 +6,7 @@ use App\Filament\Resources\EmployeResource\Pages;
 use App\Filament\Resources\EmployeResource\RelationManagers;
 use App\Models\Client;
 use App\Models\Employe;
+use App\Models\Jabatan;
 use App\Models\UserAbsensi;
 use Filament\Forms;
 use Filament\Forms\Components\Card;
@@ -351,19 +352,33 @@ class EmployeResource extends Resource
             ->filters([
                 SelectFilter::make('posisi')
                     ->label('Filter Posisi')
-                    ->options([
-                        'all' => 'Semua Data',
-                        'not_in_absensi' => 'Data Tidak Ditemukan di Absensi',
-                    ])
+                   ->options(function () {
+                        return [
+                            'all' => 'Semua Data',
+                            'not_in_absensi' => 'Data Tidak Ditemukan di Absensi',
+                        ] + Jabatan::on('mysql2connection')->pluck('name_jabatan', 'name_jabatan')->toArray();
+                    })
                     ->default('all')
                     ->query(function (Builder $query, array $data): Builder {
-                        if (($data['value'] ?? null) === 'not_in_absensi') {
-                            
-                            $absensiNames = UserAbsensi::pluck('nama_lengkap')->map(function($name) {
-                                return strtolower($name);
-                            })->all();
+                        $value = $data['value'] ?? null;
 
-                            return $query->whereNotIn(DB::raw('LOWER(name)'), $absensiNames);
+                          if ($value === 'not_in_absensi') {
+                                $absensiNames = UserAbsensi::on('mysql2connection')
+                                    ->pluck('nama_lengkap')
+                                    ->map(fn ($n) => strtolower($n))
+                                    ->all();
+
+                                return $query->whereNotIn(DB::raw('LOWER(name)'), $absensiNames);
+                            }
+
+                        if ($value && $value !== 'all') {
+                            $names = UserAbsensi::on('mysql2connection')
+                                ->whereHas('divisi.jabatan', fn($q) => $q->where('name_jabatan', $value))
+                                ->pluck('nama_lengkap')
+                                ->map(fn($n) => strtolower($n))
+                                ->all();
+
+                            return $query->whereIn(DB::raw('LOWER(name)'), $names);
                         }
 
                         return $query;
