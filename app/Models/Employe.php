@@ -126,8 +126,4 @@ class Employe extends Model
         return $this->belongsTo(Client::class);
     }
 
-    public function slipGajis()
-    {
-        return $this->hasMany(\App\Models\SlipGaji::class, 'karyawan', 'name');
-    }
 }

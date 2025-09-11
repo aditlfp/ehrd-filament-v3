@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Auth\LoginByName;
 use App\Filament\Resources\EmployeResource\Widgets\EmployeChart;
+use App\Filament\UiCustomAvatarProvider;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -30,6 +31,7 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login(LoginByName::class)
+            ->avatarProvider(UiCustomAvatarProvider::class)
             ->colors([
                 'primary' => Color::Amber,
             ])

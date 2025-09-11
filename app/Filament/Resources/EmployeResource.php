@@ -264,7 +264,7 @@ class EmployeResource extends Resource
                             ->with('divisi')
                             ->first();
 
-                        return $user->divisi
+                        return $user ?? $user->divisi
                             ? $user->divisi->jabatan->name_jabatan
                             : 'Data NotFound In Absensi';
                     })
