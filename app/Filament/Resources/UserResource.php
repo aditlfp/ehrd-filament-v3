@@ -28,6 +28,9 @@ class UserResource extends Resource
                 Forms\Components\TextInput::make('name')
                     ->required()
                     ->maxLength(255),
+                Forms\Components\FileUpload::make('avatar')
+                    ->image()
+                    ->maxSize('2048'),
                 Forms\Components\TextInput::make('email')
                     ->email()
                     ->required()
@@ -49,6 +52,8 @@ class UserResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\ImageColumn::make('avatar')
+                    ->placeholder('Avatar tidak Ditemukan'),
                 Tables\Columns\TextColumn::make('name')
                     ->searchable(),
                 Tables\Columns\TextColumn::make('email')
