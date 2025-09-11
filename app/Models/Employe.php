@@ -11,14 +11,14 @@ use Illuminate\Support\Facades\Storage;
 class Employe extends Model
 {
     use HasFactory;
-    protected $connection = 'mysqlEdata'; 
+    protected $connection = 'mysqlEdata';
     protected $casts = [
         'jenis_bpjs' => 'array',
         'jbt_name' => 'array'
     ];
 
     protected $appends = ['no_induk_karyawan'];
-    
+
     protected $fillable = [
         'user_id',
         'name',
@@ -69,49 +69,55 @@ class Employe extends Model
         }
     }
 
-    public function getImgUrlAttribute() {
-        if (!$this->img) return null;
+    public function getImgAttribute($value)
+    {
+        if (! $value) {
+            return null;
+        }
 
-        return str_starts_with($this->img, 'images/')
-            ? $this->img
-            : 'images/' . $this->img;
+        // Normalisasi path lama -> taruh ke folder profile
+        if (! str_starts_with($value, 'images/')) {
+            return "images/{$value}";
+        }
+
+        return $value;
     }
 
-    
+    public function getImgKtpDpnAttribute($value)
+    {
+        if (! $value) {
+            return null;
+        }
+
+        if (! str_starts_with($value, 'images/')) {
+            return "images/{$value}";
+        }
+
+        return $value;
+    }
+
+
     public static function booted()
     {
         static::updating(function ($record) {
-            if ($record->isDirty('img')) {
-                Storage::disk('public')->delete($record->getOriginal('img'));
-            }
+            foreach (['img', 'img_ktp_dpn', 'file_bpjs_kesehatan', 'file_bpjs_ketenaga'] as $field) {
+                if ($record->isDirty($field)) {
+                    $oldFile = $record->getOriginal($field);
 
-            if ($record->isDirty('img_ktp_dpn')) {
-                Storage::disk('public')->delete($record->getOriginal('img_ktp_dpn'));
+                    if ($oldFile && Storage::disk('public')->exists($oldFile)) {
+                        Storage::disk('public')->delete($oldFile);
+                    }
+                }
             }
-           
-            if ($record->isDirty('file_bpjs_kesehatan')) {
-                Storage::disk('public')->delete($record->getOriginal('file_bpjs_kesehatan'));
-            }
-           
-            if ($record->isDirty('file_bpjs_ketenaga')) {
-                Storage::disk('public')->delete($record->getOriginal('file_bpjs_ketenaga'));
-            }
-           
         });
 
         static::deleting(function ($record) {
-            if ($record->img) {
-                Storage::disk('public')->delete($record->img);
-            }
+            foreach (['img', 'img_ktp_dpn', 'file_bpjs_kesehatan', 'file_bpjs_ketenaga'] as $field) {
+                $file = $record->{$field};
 
-            if ($record->img_ktp_dpn) {
-                Storage::disk('public')->delete($record->img_ktp_dpn);
-            }
-            if ($record->file_bpjs_kesehatan) {
-                Storage::disk('public')->delete($record->file_bpjs_kesehatan);
-            }
-            if ($record->file_bpjs_ketenaga) {
-                Storage::disk('public')->delete($record->file_bpjs_ketenaga);
+                if ($file && Storage::disk('public')->exists($file)) {
+                    Storage::disk('public')->delete($file);
+                }
             }
         });
     }
@@ -119,11 +125,10 @@ class Employe extends Model
     public function User()
     {
         return $this->belongsTo(User::class, 'name', 'nama_lengkap');
-    }    
+    }
 
     public function Client()
     {
         return $this->belongsTo(Client::class);
     }
-
 }

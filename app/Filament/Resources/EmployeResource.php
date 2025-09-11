@@ -188,6 +188,7 @@ class EmployeResource extends Resource
                             FileUpload::make('img')
                                 ->label('Foto Profile')
                                 ->disk('public')
+                                ->directory('images')
                                 ->image()
                                 ->downloadable()
                                 ->maxSize(2048)
