@@ -261,12 +261,11 @@ class EmployeResource extends Resource
                 Tables\Columns\TextColumn::make('posisi')
                    ->getStateUsing(function ($record) {
                         $user = UserAbsensi::whereRaw('LOWER(nama_lengkap) = ?', [strtolower($record->name)])
-                            ->with('divisi')
+                            ->with('divisi.jabatan') // sekalian eager load jabatan
                             ->first();
 
-                        return $user ?? $user->divisi
-                            ? $user->divisi->jabatan->name_jabatan
-                            : 'Data NotFound In Absensi';
+                        return $user?->divisi?->jabatan?->name_jabatan 
+                            ?? 'Data NotFound In Absensi';
                     })
                     ->badge()                    
                     ->color(fn ($state) => $state === 'Data NotFound In Absensi' ? 'danger' : 'gray'),
