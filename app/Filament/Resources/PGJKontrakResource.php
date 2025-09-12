@@ -81,9 +81,8 @@ class PGJKontrakResource extends Resource
                     ->schema([
                         Grid::make(2)->schema([
                             TextInput::make('no_srt')
-                                ->label('Masukkan No Surat (Otomatis)')
-                                ->readOnly(true)
-                                ->default(function () {
+                                ->label('Masukkan No Surat')
+                                ->placeholder(function () {
                                     $last = PGJ_Kontrak::orderBy('id', 'desc')->first();
                                     if ($last) {
                                         // Pisahkan nomor surat berdasarkan "/"
@@ -104,7 +103,6 @@ class PGJKontrakResource extends Resource
                                     // Kalau belum ada data, mulai dari 1
                                     return '001/SAC/' . strtoupper(now()->format('m')) . '/' . now()->year;
                                 })
-                                ->placeholder('Nomor surat akan otomatis diisi')
                                 ->required(),
 
                             TextInput::make('nama_pk_ptm')
@@ -375,6 +373,23 @@ class PGJKontrakResource extends Resource
                             ->pluck('unit_pk_kda', 'unit_pk_kda')
                             ->toArray()
                     ),
+                Tables\Filters\SelectFilter::make('kontrak_habis') // UNIQUE NAME
+                    ->label('Kontrak Habis')
+                    ->options(function () {
+                        return PGJ_Kontrak::query()
+                            ->whereNull('deleted_at')
+                            ->whereDate('tgl_selesai_kontrak', '<=', now())
+                            ->distinct()
+                            ->pluck('unit_pk_kda', 'unit_pk_kda')
+                            ->toArray();
+                    })
+                    ->query(function ($query, $data) {
+                        if ($data['value']) {
+                            $query->where('unit_pk_kda', $data['value'])
+                                ->whereDate('tgl_selesai_kontrak', '<=', now());
+                        }
+                    })
+                    ->placeholder('Pilih Unit'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
