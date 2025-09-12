@@ -12,6 +12,7 @@ use App\Models\PGJ_Kontrak;
 use App\Models\PGJKontrak;
 use App\Models\UserAbsensi;
 use App\Notifications\ContractActive;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Carbon\Carbon;
 use Filament\Tables\Actions\Action;
 use Filament\Forms;
@@ -393,6 +394,22 @@ class PGJKontrakResource extends Resource
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\Action::make('download_pdf')
+                ->label('Download PDF')
+                ->icon('heroicon-o-document-arrow-down')
+                ->color('success')
+                // This is the updated part for Filament 3
+                ->action(function ($record) {
+                    $pdf = Pdf::loadView('filament.pages.kontrak-page', ['kontrak' => $record])
+                        ->setPaper('a4', 'potrait');
+
+                    $filename = 'kontrak-karyawan-' . $record->nama_pk_kda . date('Y-m-d') . '.pdf';
+
+                    return response()->streamDownload(
+                        fn () => print($pdf->output()),
+                        $filename
+                    );
+                }),
                 Action::make('sendToOperator')
                     ->label('Send to Operator')
                     ->icon('heroicon-o-paper-airplane')
@@ -437,6 +454,7 @@ class PGJKontrakResource extends Resource
             'index' => Pages\ListPGJKontraks::route('/'),
             'create' => Pages\CreatePGJKontrak::route('/create'),
             'edit' => Pages\EditPGJKontrak::route('/{record}/edit'),
+            'view' => Pages\ViewPGJKontraks::route('/{record}/view'),
         ];
     }
 

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\PGJKontrakResource\Pages;
 
 use App\Filament\Resources\PGJKontrakResource;
+use App\Models\PGJ_Kontrak;
 use Filament\Actions;
 use Filament\Resources\Pages\ListRecords;
 
