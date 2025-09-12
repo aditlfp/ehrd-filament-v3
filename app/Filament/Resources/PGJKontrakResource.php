@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\PGJKontrakResource\Pages;
 use App\Filament\Resources\PGJKontrakResource\RelationManagers;
 use App\Mail\ContractActiveMail;
+use App\Models\Client;
 use App\Models\Employe;
 use App\Models\Jabatan;
 use App\Models\PGJ_Kontrak;
@@ -62,196 +63,232 @@ class PGJKontrakResource extends Resource
         return 'danger'; // warna merah biar jelas
     }
 
-public static function form(Form $form): Form
+    public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                
-            // SECTION SURAT
-            Section::make('Section Surat')
-                ->schema([
-                    Grid::make(2)->schema([
-                        TextInput::make('no_srt')
-                            ->label('Masukkan No Surat (Otomatis)')
-                            ->readOnly(true)
-                            ->default(function () {
-                               $last = PGJ_Kontrak::orderBy('id', 'desc')->first();
-                               if ($last) {
-                                    // Pisahkan nomor surat berdasarkan "/"
-                                    $parts = explode('/', $last->no_srt);
-
-                                    // Ambil angka depannya (misal "450")
-                                    $lastNumber = (int) $parts[0];
-
-                                    // Naikkan 1
-                                    $nextNumber = $lastNumber + 1;
-
-                                    // Gabungkan kembali (pakai format lama persis)
-                                    $parts[0] = $nextNumber;
-
-                                    return implode('/', $parts);
-                                }
-
-                                // Kalau belum ada data, mulai dari 1
-                                return '001/SAC/' . strtoupper(now()->format('m')) . '/' . now()->year;
-                            })
-                            ->placeholder('Nomor surat akan otomatis diisi')
-                            ->required(),
-
-                        TextInput::make('nama_pk_ptm')
-                            ->label('Nama Pihak Pertama')
-                            ->placeholder('Masukan Nama Pihak Pertama')
-                            ->required(),
-                    ]),
-
-                    Grid::make(2)->schema([
-                        DatePicker::make('tgl_dibuat')
-                            ->label('Tgl Surat Dibuat/disepakati')
-                            ->placeholder('99/12/9999')
-                            ->native(false)
-                            ->required(),
-
-                        TextInput::make('alamat_pk_ptm')
-                            ->placeholder('Ponorogo')
-                            ->label('Alamat Pihak Pertama'),
-                    ]),
-
-                    Grid::make(2)->schema([
-                        DatePicker::make('tgl_mulai_kontrak')
-                            ->label('Tgl Mulai Kontrak')
-                            ->placeholder('99/12/9999')
-                            ->native(false)
-                            ->required(),
-
-                        TextInput::make('jabatan_pk_ptm')
-                            ->label('Jabatan Pihak Pertama')
-                            ->placeholder('Jabatan Pihak Pertama')
-                            ->required(),
-                    ]),
-
-                    Grid::make(2)->schema([
-                        DatePicker::make('tgl_selesai_kontrak')
-                            ->native(false)
-                            ->placeholder('99/12/9999')
-                            ->label('Tgl Selesai Kontrak')
-                            ->required(),
-                    ]),
-                ]),
-
-            // PIHAK KEDUA
-            Section::make('Pihak Kedua')
-                ->schema([
-                    Grid::make(2)->schema([
-                        Select::make('nama_pk_kda')
-                            ->label('Nama Pihak Kedua')
-                            ->options(
-                                UserAbsensi::where('nama_lengkap', '!=', 'admin')
-                                    ->whereIn('nama_lengkap', function($query) {
-                                        $query->select('nama_pk_kda')
-                                            ->from('sacpocom_edata.p_g_j__kontraks')
-                                            ->whereNull('deleted_at')
-                                            ->whereDate('tgl_selesai_kontrak', '<=', Carbon::today()->toDateString()); // kontrak expired
-                                    })
-                                    ->pluck('nama_lengkap', 'nama_lengkap')
-                            )
+                Section::make('Filter Mitra')
+                    ->schema([
+                        Select::make('mitra_id')
+                            ->label('Pilih Mitra')
+                            ->options(Client::pluck('name', 'id')->toArray()) // ambil dari tabel Client
                             ->searchable()
-                            ->required()
-                            ->reactive()
-                            ->afterStateUpdated(function ($state, callable $set) {
-                                // Ambil data user
-                                $selectedUser = UserAbsensi::where('nama_lengkap', $state)->first();
-                                $selectEmploye = Employe::where('name', $state)->first();
+                            ->reactive(),
+                    ]),
 
-                                if ($selectedUser && $selectEmploye) {
-                                    // Misal TTL disimpan "PONOROGO, 1990-01-20"
-                                    $ttl = explode(',', $selectEmploye->ttl ?? '');
-                                    $tempat = trim($ttl[0] ?? '');
-                                    $tanggal = isset($ttl[1]) ? Carbon::parse(trim($ttl[1])) : null;
-
-                                    $set('jabatan_pk_kda', $selectedUser->jabatan->name_jabatan ?? '');
-                                    $set('unit_pk_kda', $selectedUser->client->name ?? '');
-                                    $set('nik_pk_kda', $selectEmploye->no_ktp ?? '');
-                                    $set('tempat_lahir_pk_kda', $tempat);
-                                    $set('tgl_lahir_pk_kda', $tanggal);
-                                    $set('status_pk_kda', $selectedUser->status ?? '');
-                                    $set('alamat_pk_kda', $selectEmploye->alamat ?? '');
-                                }
-                            }),
-
+                // SECTION SURAT
+                Section::make('Section Surat')
+                    ->schema([
                         Grid::make(2)->schema([
-                            TextInput::make('tempat_lahir_pk_kda')
-                                ->label('Tempat')
-                                ->placeholder('Tempat Lahir Pihak Kedua')
+                            TextInput::make('no_srt')
+                                ->label('Masukkan No Surat (Otomatis)')
+                                ->readOnly(true)
+                                ->default(function () {
+                                    $last = PGJ_Kontrak::orderBy('id', 'desc')->first();
+                                    if ($last) {
+                                        // Pisahkan nomor surat berdasarkan "/"
+                                        $parts = explode('/', $last->no_srt);
+
+                                        // Ambil angka depannya (misal "450")
+                                        $lastNumber = (int) $parts[0];
+
+                                        // Naikkan 1
+                                        $nextNumber = $lastNumber + 1;
+
+                                        // Gabungkan kembali (pakai format lama persis)
+                                        $parts[0] = $nextNumber;
+
+                                        return implode('/', $parts);
+                                    }
+
+                                    // Kalau belum ada data, mulai dari 1
+                                    return '001/SAC/' . strtoupper(now()->format('m')) . '/' . now()->year;
+                                })
+                                ->placeholder('Nomor surat akan otomatis diisi')
                                 ->required(),
 
-                            DatePicker::make('tgl_lahir_pk_kda')
-                                ->native(false)
-                                ->label('Tanggal Lahir')
+                            TextInput::make('nama_pk_ptm')
+                                ->label('Nama Pihak Pertama')
+                                ->placeholder('Masukan Nama Pihak Pertama')
+                                ->required(),
+                        ]),
+
+                        Grid::make(2)->schema([
+                            DatePicker::make('tgl_dibuat')
+                                ->label('Tgl Surat Dibuat/disepakati')
                                 ->placeholder('99/12/9999')
+                                ->native(false)
+                                ->required(),
+
+                            TextInput::make('alamat_pk_ptm')
+                                ->placeholder('Ponorogo')
+                                ->label('Alamat Pihak Pertama'),
+                        ]),
+
+                        Grid::make(2)->schema([
+                            DatePicker::make('tgl_mulai_kontrak')
+                                ->label('Tgl Mulai Kontrak')
+                                ->placeholder('99/12/9999')
+                                ->native(false)
+                                ->required(),
+
+                            TextInput::make('jabatan_pk_ptm')
+                                ->label('Jabatan Pihak Pertama')
+                                ->placeholder('Jabatan Pihak Pertama')
+                                ->required(),
+                        ]),
+
+                        Grid::make(2)->schema([
+                            DatePicker::make('tgl_selesai_kontrak')
+                                ->native(false)
+                                ->placeholder('99/12/9999')
+                                ->label('Tgl Selesai Kontrak')
                                 ->required(),
                         ]),
                     ]),
 
-                    Grid::make(2)->schema([
-                        TextInput::make('nik_pk_kda')
-                            ->label('NIK')
-                            ->placeholder('123456789')
-                            ->required(),
+                // PIHAK KEDUA
+                Section::make('Pihak Kedua')
+                    ->schema([
+                        Grid::make(2)->schema([
+                            Select::make('nama_pk_kda')
+                                ->label('Nama Pihak Kedua')
+                                ->options(function (callable $get) {
+                                    $mitraId = $get('mitra_id');
 
-                        TextInput::make('alamat_pk_kda')
-                            ->label('Alamat')
-                            ->placeholder('Ponorogo')
+                                    $userAbsensi = UserAbsensi::where('nama_lengkap', '!=', 'admin')
+                                        ->whereIn('nama_lengkap', function($query) {
+                                            $query->select('nama_pk_kda')
+                                                ->from('sacpocom_edata.p_g_j__kontraks')
+                                                ->whereNull('deleted_at')
+                                                ->whereDate('tgl_selesai_kontrak', '<=', Carbon::today()->toDateString()); // expired kontrak
+                                        })
+                                        ->whereNotIn('nama_lengkap', function($query) {
+                                            $query->select('nama_pk_kda')
+                                                ->from('sacpocom_edata.p_g_j__kontraks')
+                                                ->whereNull('deleted_at')
+                                                ->whereDate('tgl_selesai_kontrak', '>', Carbon::today()->toDateString()); // masih aktif
+                                        })
+                                        ->when($mitraId, function ($q) use ($mitraId) {
+                                            $q->whereHas('kerjasama', function ($query) use ($mitraId) {
+                                                $query->where('client_id', $mitraId);
+                                            });
+                                        })
+                                        ->pluck('nama_lengkap', 'nama_lengkap')
+                                        ->toArray();
+
+                                    $employees = Employe::when($mitraId, function ($q) use ($mitraId) {
+                                            $q->where('client_id', $mitraId);
+                                        })
+                                        ->whereNotIn('name', function($query) {
+                                            $query->select('nama_pk_kda')
+                                                ->from('sacpocom_edata.p_g_j__kontraks')
+                                                ->whereNull('deleted_at');
+                                        })
+                                        ->pluck('name', 'name')
+                                        ->toArray();
+
+                                    return array_merge($userAbsensi, $employees);
+                                })
+
+                                ->searchable()
+                                ->required()
+                                ->reactive()
+                                ->afterStateUpdated(function ($state, callable $set) {
+                                    // Ambil data user
+                                    $selectedUser = UserAbsensi::where('nama_lengkap', $state)->first();
+                                    $selectEmploye = Employe::where('name', $state)->first();
+
+                                    if ($selectedUser && $selectEmploye) {
+                                        // Misal TTL disimpan "PONOROGO, 1990-01-20"
+                                        $ttl = explode(',', $selectEmploye->ttl ?? '');
+                                        $tempat = trim($ttl[0] ?? '');
+                                        $tanggal = isset($ttl[1]) ? Carbon::parse(trim($ttl[1])) : null;
+
+                                        $set('jabatan_pk_kda', $selectedUser->jabatan->name_jabatan ?? '');
+                                        $set('unit_pk_kda', $selectedUser->client->name ?? '');
+                                        $set('nik_pk_kda', $selectEmploye->no_ktp ?? '');
+                                        $set('tempat_lahir_pk_kda', $tempat);
+                                        $set('tgl_lahir_pk_kda', $tanggal);
+                                        $set('status_pk_kda', $selectedUser->status ?? '');
+                                        $set('alamat_pk_kda', $selectEmploye->alamat ?? '');
+                                    }
+                                }),
+
+                            Grid::make(2)->schema([
+                                TextInput::make('tempat_lahir_pk_kda')
+                                    ->label('Tempat')
+                                    ->placeholder('Tempat Lahir Pihak Kedua')
+                                    ->required(),
+
+                                DatePicker::make('tgl_lahir_pk_kda')
+                                    ->native(false)
+                                    ->label('Tanggal Lahir')
+                                    ->placeholder('99/12/9999')
+                                    ->required(),
+                            ]),
+                        ]),
+
+                        Grid::make(2)->schema([
+                            TextInput::make('nik_pk_kda')
+                                ->label('NIK')
+                                ->placeholder('123456789')
+                                ->required(),
+
+                            TextInput::make('alamat_pk_kda')
+                                ->label('Alamat')
+                                ->placeholder('Ponorogo')
+                                ->required(),
+                        ]),
+
+                        Grid::make(2)->schema([
+                            Select::make('jabatan_pk_kda')
+                                ->label('Jabatan')
+                                ->placeholder('Pilih Jabatan')
+                                ->options(
+                                    Jabatan::pluck('name_jabatan', 'name_jabatan')
+                                )
+                                ->required(),
+
+                            Select::make('status_pk_kda')
+                                ->label('Status')
+                                ->options([
+                                    'Karyawan Kontrak' => 'Karyawan Kontrak',
+                                    'Karyawan Tetap' => 'Karyawan Tetap'
+                                ])
+                                ->native(false)
+                                ->placeholder('Pilih Status')
+                                ->required(),
+                        ]),
+
+                        TextInput::make('unit_pk_kda')
+                            ->label('Unit Kerja')
                             ->required(),
                     ]),
 
-                    Grid::make(2)->schema([
-                        Select::make('jabatan_pk_kda')
-                            ->label('Jabatan')
-                            ->placeholder('Pilih Jabatan')
-                            ->options(
-                                Jabatan::pluck('name_jabatan', 'name_jabatan')
-                            )
-                            ->required(),
+                // GAJI DAN TUNJANGAN
+                Section::make('Gaji Dan Tunjangan')
+                    ->schema([
+                        TextInput::make('g_pok')
+                            ->label('Gaji Pokok')
+                            ->placeholder('9000000')
+                            ->numeric(),
 
-                        Select::make('status_pk_kda')
-                            ->label('Status')
-                            ->options([
-                                'Karyawan Kontrak' => 'Karyawan Kontrak',
-                                'Karyawan Tetap' => 'Karyawan Tetap'
-                            ])
-                            ->native(false)
-                            ->placeholder('Pilih Status')
-                            ->required(),
+                        TextInput::make('tj_hadir')
+                            ->label('Tunjangan Kehadiran')
+                            ->placeholder('9000000')
+                            ->numeric(),
+
+                        TextInput::make('kinerja')
+                            ->label('Kinerja')
+                            ->placeholder('9000000')
+                            ->numeric(),
+
+                        TextInput::make('lain_lain')
+                            ->label('Lain Lain')
+                            ->placeholder('9000000')
+                            ->numeric(),
                     ]),
-
-                    TextInput::make('unit_pk_kda')
-                        ->label('Unit Kerja')
-                        ->required(),
-                ]),
-
-            // GAJI DAN TUNJANGAN
-            Section::make('Gaji Dan Tunjangan')
-                ->schema([
-                    TextInput::make('g_pok')
-                        ->label('Gaji Pokok')
-                        ->placeholder('9000000')
-                        ->numeric(),
-
-                    TextInput::make('tj_hadir')
-                        ->label('Tunjangan Kehadiran')
-                        ->placeholder('9000000')
-                        ->numeric(),
-
-                    TextInput::make('kinerja')
-                        ->label('Kinerja')
-                        ->placeholder('9000000')
-                        ->numeric(),
-
-                    TextInput::make('lain_lain')
-                        ->label('Lain Lain')
-                        ->placeholder('9000000')
-                        ->numeric(),
-                ]),
             ]);
     }
 
@@ -264,11 +301,12 @@ public static function form(Form $form): Form
                     ->label('No')
                     ->rowIndex(),
                 Tables\Columns\TextColumn::make('no_srt')->label('No Surat')->sortable()->searchable()->alignCenter(),
-                Tables\Columns\TextColumn::make('nama_pk_kda')->label('Nama Pihak Kedua')->sortable()->searchable()->alignCenter()->color(fn($record) => 
-                        \Carbon\Carbon::now()->greaterThan(\Carbon\Carbon::parse($record->tgl_selesai_kontrak)) 
-                            ? 'danger'
-                            : '' 
-                    ),
+                Tables\Columns\TextColumn::make('nama_pk_kda')->label('Nama Pihak Kedua')->sortable()->searchable()->alignCenter()->color(
+                    fn($record) =>
+                    \Carbon\Carbon::now()->greaterThan(\Carbon\Carbon::parse($record->tgl_selesai_kontrak))
+                        ? 'danger'
+                        : ''
+                ),
                 Tables\Columns\TextColumn::make('nik_pk_kda')->label('NIK')->sortable()->searchable()->alignCenter(),
                 Tables\Columns\TextColumn::make('jabatan_pk_kda')->label('Jabatan')->alignCenter(),
                 Tables\Columns\TextColumn::make('unit_pk_kda')->label('Unit Kerja')->alignCenter(),
@@ -277,13 +315,15 @@ public static function form(Form $form): Form
                     ->label('Tanggal Kontrak')
                     ->date('d/m/Y')
                     ->suffix(fn($record) => ' - ' . \Carbon\Carbon::parse($record->tgl_selesai_kontrak)->format('d/m/Y'))
-                    ->color(fn($record) => 
-                        \Carbon\Carbon::now()->greaterThan(\Carbon\Carbon::parse($record->tgl_selesai_kontrak)) 
+                    ->color(
+                        fn($record) =>
+                        \Carbon\Carbon::now()->greaterThan(\Carbon\Carbon::parse($record->tgl_selesai_kontrak))
                             ? 'danger'   // merah kalau sudah lewat
                             : 'success'  // hijau kalau masih aktif
                     )
-                    ->icon(fn($record) => 
-                        \Carbon\Carbon::now()->greaterThan(\Carbon\Carbon::parse($record->tgl_selesai_kontrak)) 
+                    ->icon(
+                        fn($record) =>
+                        \Carbon\Carbon::now()->greaterThan(\Carbon\Carbon::parse($record->tgl_selesai_kontrak))
                             ? 'heroicon-o-exclamation-circle' // expired
                             : 'heroicon-o-check-circle'       // masih aktif
                     ),
@@ -297,16 +337,11 @@ public static function form(Form $form): Form
                     ->getStateUsing(function ($record) {
                         if ($record->ttd) {
                             return 'Pihak 2';
-                        }
-                        elseif($record->ttd_atasan)
-                        {
+                        } elseif ($record->ttd_atasan) {
                             return 'Pihak 1';
-                        }
-                        elseif($record->ttd && $record->ttd_atasan)
-                        {
+                        } elseif ($record->ttd && $record->ttd_atasan) {
                             return 'Pihak 1 & 2';
-                        }
-                        else{
+                        } else {
                             return 'Belum TTD';
                         }
                     }),
@@ -325,7 +360,7 @@ public static function form(Form $form): Form
                 Tables\Filters\SelectFilter::make('jabatan_pk_kda')
                     ->label('Jabatan')
                     ->options(
-                        fn () => \App\Models\PGJ_Kontrak::query()
+                        fn() => \App\Models\PGJ_Kontrak::query()
                             ->select('jabatan_pk_kda')
                             ->distinct()
                             ->pluck('jabatan_pk_kda', 'jabatan_pk_kda')
@@ -334,7 +369,7 @@ public static function form(Form $form): Form
                 Tables\Filters\SelectFilter::make('unit_pk_kda')
                     ->label('Unit Kerja')
                     ->options(
-                        fn () => \App\Models\PGJ_Kontrak::query()
+                        fn() => \App\Models\PGJ_Kontrak::query()
                             ->select('unit_pk_kda')
                             ->distinct()
                             ->pluck('unit_pk_kda', 'unit_pk_kda')
@@ -344,11 +379,11 @@ public static function form(Form $form): Form
             ->actions([
                 Tables\Actions\EditAction::make(),
                 Action::make('sendToOperator')
-                ->label('Send to Operator')
-                ->icon('heroicon-o-paper-airplane')
-                ->color('info')
-                ->requiresConfirmation()
-                ->action(function ($record) {
+                    ->label('Send to Operator')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->action(function ($record) {
                         $isEmailUser = UserAbsensi::where('nama_lengkap', $record->nama_pk_kda)->first();
                         if ($record->send_to_operator == 0) {
                             $record->update([
@@ -361,10 +396,9 @@ public static function form(Form $form): Form
                                 ->title('Berhasil diverifikasi & Notif Ke Email User')
                                 ->success()
                                 ->send();
-                            
                         }
-                }) 
-                ->visible(fn (Model $record): bool => $record->send_to_operator != 1),
+                    })
+                    ->visible(fn(Model $record): bool => $record->send_to_operator != 1),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
