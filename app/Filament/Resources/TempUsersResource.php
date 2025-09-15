@@ -107,6 +107,7 @@ class TempUsersResource extends Resource
                                 'password' => $record->data['password'],
                                 'image' => $record->data['image'],
                                 'devisi_id' => $record->data['devisi_id'],
+                                'status_id' => 1,
                                 'nik' => $record->data['nik'],
                                 'no_hp' => $record->data['no_hp'],
                                 'alamat' => $record->data['alamat']
