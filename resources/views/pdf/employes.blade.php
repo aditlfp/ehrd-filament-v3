@@ -19,7 +19,7 @@
                 <th>Name</th>
                 <th>Posisi</th>
                 <th>TTL</th>
-                <th>No. KK</th>
+                <th>No. NIK</th>
                 <th>No Induk Karyawan</th>
                 <th>Mitra</th>
                 <th>Jenis BPJS</th>
@@ -48,7 +48,7 @@
                         </span>
                     </td>
                     <td>{{ $employe->ttl ?? '-' }}</td>
-                    <td>{{ $employe->no_kk }}</td>
+                    <td>{{ $employe->no_ktp }}</td>
                     <td> 
                     @php
                         $initials = $employe->initials ?? '';

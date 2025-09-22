@@ -353,30 +353,32 @@ class EmployeResource extends Resource
             ->filters([
                 SelectFilter::make('posisi')
                     ->label('Filter Posisi')
-                   ->options(function () {
+                    ->options(function () {
                         return [
                             'all' => 'Semua Data',
                             'not_in_absensi' => 'Data Tidak Ditemukan di Absensi',
-                        ] + Jabatan::on('mysql2connection')->pluck('name_jabatan', 'name_jabatan')->toArray();
+                        ] + Jabatan::on('mysql2connection')
+                            ->pluck('name_jabatan', 'name_jabatan')
+                            ->toArray();
                     })
-                    ->default('all')
+                    ->multiple()
+                    ->default(['all']) // default array
                     ->query(function (Builder $query, array $data): Builder {
-                        $value = $data['value'] ?? null;
+                        $values = $data['values'] ?? [];
+                        if (in_array('not_in_absensi', $values)) {
+                            $absensiNames = UserAbsensi::on('mysql2connection')
+                                ->selectRaw('LOWER(nama_lengkap) as nama')
+                                ->pluck('nama')
+                                ->all();
 
-                          if ($value === 'not_in_absensi') {
-                                $absensiNames = UserAbsensi::on('mysql2connection')
-                                    ->pluck('nama_lengkap')
-                                    ->map(fn ($n) => strtolower($n))
-                                    ->all();
+                            return $query->whereNotIn(DB::raw('LOWER(name)'), $absensiNames);
+                        }
 
-                                return $query->whereNotIn(DB::raw('LOWER(name)'), $absensiNames);
-                            }
-
-                        if ($value && $value !== 'all') {
+                        if (! in_array('all', $values) && ! empty($values)) {
                             $names = UserAbsensi::on('mysql2connection')
-                                ->whereHas('divisi.jabatan', fn($q) => $q->where('name_jabatan', $value))
-                                ->pluck('nama_lengkap')
-                                ->map(fn($n) => strtolower($n))
+                                ->whereHas('divisi.jabatan', fn($q) => $q->whereIn('name_jabatan', $values))
+                                ->selectRaw('LOWER(nama_lengkap) as nama')
+                                ->pluck('nama')
                                 ->all();
 
                             return $query->whereIn(DB::raw('LOWER(name)'), $names);
@@ -384,6 +386,7 @@ class EmployeResource extends Resource
 
                         return $query;
                     }),
+
 
                 SelectFilter::make('client_id')
                     ->label('Filter Mitra')
@@ -418,10 +421,8 @@ class EmployeResource extends Resource
                 ->color('success')
                 // This is the updated part for Filament 3
                 ->action(function ($livewire) {
-                    // 1. Call the correct v3 method on the Livewire component
                     $records = $livewire->getFilteredTableQuery()->get();
 
-                    // 2. The rest of the logic remains the same
                     $pdf = Pdf::loadView('pdf.employes', ['employes' => $records])
                         ->setPaper('a4', 'landscape');
 
