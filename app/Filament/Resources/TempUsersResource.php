@@ -49,6 +49,8 @@ class TempUsersResource extends Resource
     {
 
         return $table
+            ->defaultSort('status', 'asc')
+            ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\ImageColumn::make('data.image')
                     ->label('Foto Profile')
@@ -76,7 +78,10 @@ class TempUsersResource extends Resource
                 Tables\Columns\TextColumn::make('data.email')
                     ->label('Email'),
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Tanggal Input'),
+                    ->label('Tanggal Input')
+                    ->dateTime('d-m-Y H:i')
+                    ->sortable()
+                    ->searchable(),
                 Tables\Columns\BadgeColumn::make('status')
                     ->formatStateUsing(fn (bool $state): string => $state ? 'Approve' : 'Pending')
                     ->color(fn (bool $state): string => $state ? 'success' : 'warning')
@@ -107,6 +112,7 @@ class TempUsersResource extends Resource
                                 'password' => $record->data['password'],
                                 'image' => $record->data['image'],
                                 'devisi_id' => $record->data['devisi_id'],
+                                'jabatan_id' => $record->data['jabatan_id'],
                                 'status_id' => 1,
                                 'nik' => $record->data['nik'],
                                 'no_hp' => $record->data['no_hp'],

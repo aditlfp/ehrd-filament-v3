@@ -38,6 +38,7 @@ class Employe extends Model
         'file_bpjs_kesehatan',
         'no_bpjs_ketenaga',
         'file_bpjs_ketenaga',
+        'alamat',
     ];
 
     public function getNoIndukKaryawanAttribute(): ?string

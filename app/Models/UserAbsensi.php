@@ -28,7 +28,8 @@ class UserAbsensi extends Model
         'status_id',
         'temp_ban',
         'nik',
-        'no_hp'
+        'no_hp',
+        'alamat',
     ];
 
     /**
