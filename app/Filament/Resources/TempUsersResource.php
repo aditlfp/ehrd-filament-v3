@@ -21,6 +21,7 @@ use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\DB;
 
 class TempUsersResource extends Resource
 {
@@ -102,22 +103,47 @@ class TempUsersResource extends Resource
 
                         $kerjasama = Kerjasama::where('client_id', $record->data['client_id'])->first();
                         try {
+                            DB::transaction(function () use ($record, $kerjasama) {
                             $record->status = 1;
                             $record->save();
-                            UserAbsensi::create([
-                                'name' => $record->data['username'],
-                                'nama_lengkap' => $record->data['nama_lengkap'],
-                                'kerjasama_id' => $kerjasama->id,
-                                'email' => $record->data['email'],
-                                'password' => $record->data['password'],
-                                'image' => $record->data['image'],
-                                'devisi_id' => $record->data['devisi_id'],
-                                'jabatan_id' => $record->data['jabatan_id'],
-                                'status_id' => 1,
-                                'nik' => $record->data['nik'],
-                                'no_hp' => $record->data['no_hp'],
-                                'alamat' => $record->data['alamat']
-                            ]);
+                            $userAbsensi = UserAbsensi::query();
+                            if($userAbsensi->where('email', $record->data['email'])->first() || $userAbsensi->where('name', $record->data['username'])->first() ){
+                                return Notification::make()
+                                    ->title('User Gagal diverifikasi: User / Email sudah terdaftar')
+                                    ->danger()
+                                    ->send();
+                            }
+    
+                            if($userAbsensi->where('nik', $record->data['nik'])->first()){
+                                if ($userAbsensi->status_id != 1) {
+                                    $userAbsensi->status_id = 1;
+                                    $userAbsensi->save();
+                                }
+                            }
+                            else{
+                                UserAbsensi::create([
+                                    'name' => $record->data['username'],
+                                    'nama_lengkap' => $record->data['nama_lengkap'],
+                                    'kerjasama_id' => $kerjasama->id,
+                                    'email' => $record->data['email'],
+                                    'password' => $record->data['password'],
+                                    'image' => $record->data['image'],
+                                    'devisi_id' => $record->data['devisi_id'],
+                                    'jabatan_id' => $record->data['jabatan_id'],
+                                    'status_id' => 1,
+                                    'nik' => $record->data['nik'],
+                                    'no_hp' => $record->data['no_hp'],
+                                    'alamat' => $record->data['alamat']
+                                ]);
+                            }
+                            
+                            if ($userAbsensi->status_id != 1) {
+                                throw new \Exception('Gagal mengatur status absensi ke aktif (1)');
+                                return Notification::make()
+                                    ->title('User berhasil diverifikasi: Status Akun Non Aktif')
+                                    ->danger()
+                                    ->send();
+                            }
 
                             Employe::create([
                                 'name' => $record->data['nama_lengkap'],
@@ -138,17 +164,14 @@ class TempUsersResource extends Resource
                                 ->title('User berhasil diverifikasi')
                                 ->success()
                                 ->send();
+                        });
                         } catch (\Throwable $th) {
-                            dd($th);
+                            DB::rollBack();
                             Notification::make()
-                                ->title('User Gagal diverifikasi')
+                                ->title('User Gagal diverifikasi: '.$th->getMessage())
                                 ->danger()
                                 ->send();
-                        }
-                       
-
-
-                      
+                        }              
                     })
                     ->visible(fn (Model $record): bool => !$record->status),
                 Action::make('delete')
