@@ -39,3 +39,16 @@ jobs:
             .github/**
             README.md
             .env
+      - name: Discord notification
+        if: always() # step ini tetap jalan meski gagal
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          DISCORD_USERNAME: "GitHub Actions Bot"
+          DISCORD_AVATAR: "https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png"
+        with:
+          args: |
+            🚀 **Deploy status untuk ${{ github.repository }}**
+            Branch: `${{ github.ref_name }}`
+            Commit: [${{ github.sha }}](https://github.com/${{ github.repository }}/commit/${{ github.sha }})
+            Status: **${{ job.status }}**
