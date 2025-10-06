@@ -120,7 +120,7 @@ class TempUsersResource extends Resource
                                         $userAbsensi->save();
                                     }
                                 } else {
-
+                                    $webhookUrl = config('services.discord.webhook_url');
                                     $tempAcc = UserAbsensi::create([
                                         'name' => $record->data['username'],
                                         'nama_lengkap' => $record->data['nama_lengkap'],
@@ -136,7 +136,7 @@ class TempUsersResource extends Resource
                                         'alamat' => $record->data['alamat']
                                     ]);
 
-                                    SendDiscordWebhookJob::dispatch([
+                                    Http::post($webhookUrl, [
                                         'embeds' => [[
                                             'title' => '✨ New User Registration',
                                             'description' => "Welcome **{$tempAcc->nama_lengkap}** to the Absensi APP!",
