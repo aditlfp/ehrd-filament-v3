@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\TempUsersResource\Pages;
 use App\Filament\Resources\TempUsersResource\RelationManagers;
+use App\Jobs\SendDiscordWebhookJob;
 use App\Models\Client;
 use App\Models\Employe;
 use App\Models\Kerjasama;
@@ -18,7 +19,7 @@ use Filament\Tables;
 use Filament\Tables\Actions\Action;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 use Illuminate\Support\Facades\DB;
@@ -55,16 +56,16 @@ class TempUsersResource extends Resource
             ->columns([
                 Tables\Columns\ImageColumn::make('data.image')
                     ->label('Foto Profile')
-                    ->getStateUsing(function($record) {
+                    ->getStateUsing(function ($record) {
                         $path = $record->data['image'];
-                        
 
-                        if($path == null) { return null; }
-                        else{
+
+                        if ($path == null) {
+                            return null;
+                        } else {
                             $path = "https://absensi-sac.sac-po.com/public/storage/user/{$record->data['image']}";
                             return $path;
                         }
-
                     })
                     ->defaultImageUrl(url('https://placehold.co/400x400/png'))
                     ->circular(),
@@ -84,10 +85,10 @@ class TempUsersResource extends Resource
                     ->sortable()
                     ->searchable(),
                 Tables\Columns\BadgeColumn::make('status')
-                    ->formatStateUsing(fn (bool $state): string => $state ? 'Approve' : 'Pending')
-                    ->color(fn (bool $state): string => $state ? 'success' : 'warning')
+                    ->formatStateUsing(fn(bool $state): string => $state ? 'Approve' : 'Pending')
+                    ->color(fn(bool $state): string => $state ? 'success' : 'warning')
                     ->sortable()
-                    
+
 
             ])
             ->filters([
@@ -100,80 +101,128 @@ class TempUsersResource extends Resource
                     ->color('success')
                     ->requiresConfirmation()
                     ->action(function (Model $record) {
-
                         $kerjasama = Kerjasama::where('client_id', $record->data['client_id'])->first();
                         try {
                             DB::transaction(function () use ($record, $kerjasama) {
-                            $record->status = 1;
-                            $record->save();
-                            $userAbsensi = UserAbsensi::query();
-                            if($userAbsensi->where('email', $record->data['email'])->first() || $userAbsensi->where('name', $record->data['username'])->first() ){
-                                return Notification::make()
-                                    ->title('User Gagal diverifikasi: User / Email sudah terdaftar')
-                                    ->danger()
-                                    ->send();
-                            }
-    
-                            if($userAbsensi->where('nik', $record->data['nik'])->first()){
-                                if ($userAbsensi->status_id != 1) {
-                                    $userAbsensi->status_id = 1;
-                                    $userAbsensi->save();
+
+                                $record->status = 1;
+                                $userAbsensi = UserAbsensi::query();
+                                if ($userAbsensi->where('email', $record->data['email'])->first() || $userAbsensi->where('name', $record->data['username'])->first()) {
+                                    return Notification::make()
+                                        ->title('User Gagal diverifikasi: User / Email sudah terdaftar')
+                                        ->danger()
+                                        ->send();
                                 }
-                            }
-                            else{
-                                UserAbsensi::create([
-                                    'name' => $record->data['username'],
-                                    'nama_lengkap' => $record->data['nama_lengkap'],
-                                    'kerjasama_id' => $kerjasama->id,
-                                    'email' => $record->data['email'],
-                                    'password' => $record->data['password'],
-                                    'image' => $record->data['image'],
-                                    'devisi_id' => $record->data['devisi_id'],
-                                    'jabatan_id' => $record->data['jabatan_id'],
-                                    'status_id' => 1,
+
+                                if ($userAbsensi->where('nik', $record->data['nik'])->first()) {
+                                    if ($userAbsensi->status_id != 1) {
+                                        $userAbsensi->status_id = 1;
+                                        $userAbsensi->save();
+                                    }
+                                } else {
+
+                                    $tempAcc = UserAbsensi::create([
+                                        'name' => $record->data['username'],
+                                        'nama_lengkap' => $record->data['nama_lengkap'],
+                                        'kerjasama_id' => $kerjasama->id,
+                                        'email' => $record->data['email'],
+                                        'password' => $record->data['password'],
+                                        'image' => $record->data['image'],
+                                        'devisi_id' => $record->data['devisi_id'],
+                                        'jabatan_id' => $record->data['jabatan_id'],
+                                        'status_id' => 1,
+                                        'nik' => $record->data['nik'],
+                                        'no_hp' => $record->data['no_hp'],
+                                        'alamat' => $record->data['alamat']
+                                    ]);
+
+                                    SendDiscordWebhookJob::dispatch([
+                                        'embeds' => [[
+                                            'title' => '✨ New User Registration',
+                                            'description' => "Welcome **{$tempAcc->nama_lengkap}** to the Absensi APP!",
+                                            'color' => 5793266, // Beautiful purple color
+                                            'thumbnail' => [
+                                                'url' => asset('assets/logo.png')
+                                            ],
+                                            'fields' => [
+                                                [
+                                                    'name' => '👤 Full Name',
+                                                    'value' => $tempAcc->nama_lengkap,
+                                                    'inline' => false
+                                                ],
+                                                [
+                                                    'name' => '🧩 User Name',
+                                                    'value' => $tempAcc->name,
+                                                    'inline' => false
+                                                ],
+                                                [
+                                                    'name' => '📧 Email Address',
+                                                    'value' => "`{$tempAcc->email}`",
+                                                    'inline' => false
+                                                ],
+                                                [
+                                                    'name' => '🆔 User ID',
+                                                    'value' => "`{$tempAcc->id}`",
+                                                    'inline' => true
+                                                ],
+                                                [
+                                                    'name' => '📊 Status',
+                                                    'value' => $tempAcc->status_id == 1 ? '🟢 Active' : '🔴 Inactive',
+                                                    'inline' => true
+                                                ],
+                                                [
+                                                    'name' => '📅 Registered At',
+                                                    'value' => now()->format('F j, Y - g:i A'),
+                                                    'inline' => false
+                                                ]
+                                            ],
+                                            'footer' => [
+                                                'text' => 'User Management System',
+                                                'icon_url' => 'https://cdn.discordapp.com/embed/avatars/1.png'
+                                            ],
+                                            'timestamp' => now()->toIso8601String(),
+                                        ]]
+                                    ]);
+                                    if ($tempAcc->status_id != 1) {
+                                        throw new \Exception('Gagal mengatur status absensi ke aktif (1)');
+                                        return Notification::make()
+                                            ->title('User berhasil diverifikasi: Status Akun Non Aktif')
+                                            ->danger()
+                                            ->send();
+                                    }
+                                }
+
+
+                                Employe::create([
+                                    'name' => $record->data['nama_lengkap'],
+                                    'ttl' => $record->data['ttl'],
                                     'nik' => $record->data['nik'],
-                                    'no_hp' => $record->data['no_hp'],
+                                    'no_kk'  => $record->data['no_kk'],
+                                    'client_id' => $record->data['client_id'],
+                                    'img'  => $record->data['image'],
+                                    'img_ktp_dpn' => $record->data['img_ktp_dpn'],
+                                    'no_ktp' => 0,
                                     'alamat' => $record->data['alamat']
+
                                 ]);
-                            }
-                            
-                            if ($userAbsensi->status_id != 1) {
-                                throw new \Exception('Gagal mengatur status absensi ke aktif (1)');
-                                return Notification::make()
-                                    ->title('User berhasil diverifikasi: Status Akun Non Aktif')
-                                    ->danger()
+                                $record->save();
+                                $record->notify(new UserVerified());
+
+                                Notification::make()
+                                    ->title('User berhasil diverifikasi')
+                                    ->success()
                                     ->send();
-                            }
-
-                            Employe::create([
-                                'name' => $record->data['nama_lengkap'],
-                                'ttl' => $record->data['ttl'],
-                                'nik' => $record->data['nik'],
-                                'no_kk'  => $record->data['no_kk'],
-                                'client_id' => $record->data['client_id'],
-                                'img'  => $record->data['image'],
-                                'img_ktp_dpn' => $record->data['img_ktp_dpn'],
-                                'no_ktp' => 0,
-                                'alamat' => $record->data['alamat']
-
-                            ]);
-
-                            $record->notify(new UserVerified());
-
-                            Notification::make()
-                                ->title('User berhasil diverifikasi')
-                                ->success()
-                                ->send();
-                        });
+                            });
                         } catch (\Throwable $th) {
+                            dd($th);
                             DB::rollBack();
                             Notification::make()
-                                ->title('User Gagal diverifikasi: '.$th->getMessage())
+                                ->title('User Gagal diverifikasi: ' . $th->getMessage())
                                 ->danger()
                                 ->send();
-                        }              
+                        }
                     })
-                    ->visible(fn (Model $record): bool => !$record->status),
+                    ->visible(fn(Model $record): bool => !$record->status),
                 Action::make('delete')
                     ->icon('heroicon-o-trash')
                     ->color('danger')
