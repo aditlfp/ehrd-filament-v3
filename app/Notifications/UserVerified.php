@@ -41,7 +41,7 @@ class UserVerified extends Notification
             $data = json_decode($data, true) ?? [];
         }
 
-        $name = $data['nama_lengkap'] ?? 'User';
+        $name = $data['name'] ?? 'User';
         $password = $data['pw'] ?? '';
         // dd($data, $name);
 
