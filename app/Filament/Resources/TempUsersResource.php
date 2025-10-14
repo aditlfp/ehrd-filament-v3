@@ -121,6 +121,12 @@ class TempUsersResource extends Resource
                                     }
                                 } else {
                                     $webhookUrl = config('services.discord.webhook_url');
+                                    if ($userAbsensi->where('name', $record->data['username'])->exists()) {
+                                        return Notification::make()
+                                            ->title('User gagal diverifikasi: Username sudah digunakan')
+                                            ->danger()
+                                            ->send();
+                                    }
                                     $tempAcc = UserAbsensi::create([
                                         'name' => $record->data['username'],
                                         'nama_lengkap' => $record->data['nama_lengkap'],
