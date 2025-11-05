@@ -410,6 +410,23 @@ class PGJKontrakResource extends Resource
                         $filename
                     );
                 }),
+                Tables\Actions\Action::make('preview_pdf')
+                ->label('Preview PDF')
+                ->icon('heroicon-o-eye')
+                ->color('info')
+                ->modalHeading('Preview Kontrak PDF')
+                ->modalContent(function ($record) {
+                    $pdf = Pdf::loadView('filament.pages.kontrak-page', [
+                        'kontrak' => $record,
+                    ])->setPaper('a4', 'portrait');
+
+                    $pdfContent = base64_encode($pdf->output());
+
+                    // Embed PDF in an iframe
+                    return view('components.pdf-preview', [
+                        'pdfContent' => $pdfContent,
+                    ]);
+                }),
                 Action::make('sendToOperator')
                     ->label('Send to Operator')
                     ->icon('heroicon-o-paper-airplane')
