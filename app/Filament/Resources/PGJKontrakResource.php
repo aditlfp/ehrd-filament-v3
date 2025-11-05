@@ -415,6 +415,8 @@ class PGJKontrakResource extends Resource
                 ->icon('heroicon-o-eye')
                 ->color('info')
                 ->modalHeading('Preview Kontrak PDF')
+                ->modalSubmitAction(false)
+                ->modalCancelActionLabel('Close')
                 ->modalContent(function ($record) {
                     $pdf = Pdf::loadView('filament.pages.kontrak-page', [
                         'kontrak' => $record,
